@@ -376,10 +376,11 @@ func (r *EntryReconciler) addEntry(cli ldap.Client, entry *klapv1alpha1.Entry, s
 	if searchResult, err := cli.Search(search); err != nil {
 		return err
 	} else {
-		guid := searchResult.Entries[0].GetAttributeValue(OpenLDAPGUID)
+		guidAttr := OpenLDAPGUID
 		if *server.Spec.Implementation == ActiveDirectory {
-			guid = searchResult.Entries[0].GetAttributeValue(ActiveDirectoryGUID)
+			guidAttr = ActiveDirectoryGUID
 		}
+		guid := searchResult.Entries[0].GetAttributeValue(guidAttr)
 		if guid == "" {
 			return fmt.Errorf("unable to retrieve entry GUID")
 		}
