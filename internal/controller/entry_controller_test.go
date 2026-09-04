@@ -307,6 +307,34 @@ var _ = Describe("Entry Controller", func() {
 
 			Expect(k8sClient.Delete(ctx, result)).To(Succeed())
 		})
+
+		It("should release the connection when the bind fails", func() {
+			By("Making the LDAP bind fail")
+			// The connection is already open when the bind runs, so the failure must
+			// still unbind it. Unbinding a nil client here would panic instead.
+			mockClient.EXPECT().Bind(gomock.Any(), gomock.Any()).Return(fmt.Errorf("invalid credentials"))
+			mockClient.EXPECT().Unbind().Times(1).Return(nil)
+
+			controllerReconciler := &EntryReconciler{
+				ldapClient: mockClient,
+				Client:     k8sClient,
+				Scheme:     k8sClient.Scheme(),
+				Recorder:   recorder,
+			}
+
+			By("Reconciling the resource")
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Checking the entry reports the bind error")
+			result := &klapv1alpha1.Entry{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, result)).To(Succeed())
+			cond := meta.FindStatusCondition(result.Status.Conditions, typeAvailable)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Message).To(ContainSubstring("invalid credentials"))
+		})
 	})
 
 	Context("When filtering entries by namespace", func() {
