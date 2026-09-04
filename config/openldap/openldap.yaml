@@ -46,7 +46,8 @@ metadata:
   name: openldap-passwd
 type: Opaque
 stringData:
-  password: passwd
+  adminPassword: passwd
+  configAdminPassword: config
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -65,7 +66,8 @@ spec:
     spec:
       containers:
         - name: openldap
-          image: ghcr.io/ripolin/openldap:2.6.13
+          image: ghcr.io/ripolin/openldap:2.7
+          imagePullPolicy: Always
           env:
             - name: BITNAMI_DEBUG
               value: "yes"
@@ -73,7 +75,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: openldap-passwd
-                  key: password
+                  key: adminPassword
+            - name: LDAP_CONFIG_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openldap-passwd
+                  key: configAdminPassword
             - name: LDAP_CONFIG_ADMIN_ENABLED
               value: "yes"
             - name: LDAP_ENABLE_TLS

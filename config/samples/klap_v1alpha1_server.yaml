@@ -13,6 +13,7 @@ spec:
   startTLS: true
   passwordSecretRef:
     name: openldap-passwd
+    key: adminPassword
   tlsSecretRef:
     name: openldap-server-cert
   allowedNamespaces:
