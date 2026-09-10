@@ -46,22 +46,24 @@ var serverlog = logf.Log.WithName("server-resource")
 // SetupServerWebhookWithManager registers the webhook for Server in the manager.
 func SetupServerWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &klapv1alpha1.Server{}).
-		WithValidator(&ServerCustomValidator{}).
-		WithDefaulter(&ServerCustomDefaulter{}).
+		WithValidator(&ServerValidator{}).
+		WithDefaulter(&ServerDefaulter{}).
 		Complete()
 }
 
 // +kubebuilder:webhook:path=/mutate-klap-ripolin-github-com-v1alpha1-server,mutating=true,failurePolicy=fail,sideEffects=None,groups=klap.ripolin.github.com,resources=servers,verbs=create;update,versions=v1alpha1,name=mserver-v1alpha1.kb.io,admissionReviewVersions=v1
 
-// ServerCustomDefaulter struct is responsible for setting default values on the custom resource of the
+// ServerDefaulter struct is responsible for setting default values on the custom resource of the
 // Kind Server when those are created or updated.
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
-type ServerCustomDefaulter struct{}
+type ServerDefaulter struct {
+	// TODO(user): Add more fields as needed for defaulting
+}
 
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Server.
-func (d *ServerCustomDefaulter) Default(_ context.Context, obj *klapv1alpha1.Server) error {
+// Default implements admission.Defaulter so a webhook will be registered for the Kind Server.
+func (d *ServerDefaulter) Default(_ context.Context, obj *klapv1alpha1.Server) error {
 	serverlog.Info("Defaulting for Server", "name", obj.GetName())
 
 	if obj.Spec.PasswordSecretRef.Key == nil {
@@ -82,29 +84,31 @@ func (d *ServerCustomDefaulter) Default(_ context.Context, obj *klapv1alpha1.Ser
 // NOTE: If you want to customise the 'path', use the flags '--defaulting-path' or '--validation-path'.
 // +kubebuilder:webhook:path=/validate-klap-ripolin-github-com-v1alpha1-server,mutating=false,failurePolicy=fail,sideEffects=None,groups=klap.ripolin.github.com,resources=servers,verbs=create;update,versions=v1alpha1,name=vserver-v1alpha1.kb.io,admissionReviewVersions=v1
 
-// ServerCustomValidator struct is responsible for validating the Server resource
+// ServerValidator struct is responsible for validating the Server resource
 // when it is created, updated, or deleted.
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type ServerCustomValidator struct{}
+type ServerValidator struct {
+	// TODO(user): Add more fields as needed for validation
+}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Server.
-func (v *ServerCustomValidator) ValidateCreate(_ context.Context, obj *klapv1alpha1.Server) (admission.Warnings, error) {
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type Server.
+func (v *ServerValidator) ValidateCreate(_ context.Context, obj *klapv1alpha1.Server) (admission.Warnings, error) {
 	serverlog.Info("Validation for Server upon creation", "name", obj.GetName())
 
 	return validateServer(obj)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Server.
-func (v *ServerCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *klapv1alpha1.Server) (admission.Warnings, error) {
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type Server.
+func (v *ServerValidator) ValidateUpdate(_ context.Context, oldObj, newObj *klapv1alpha1.Server) (admission.Warnings, error) {
 	serverlog.Info("Validation for Server upon update", "name", newObj.GetName())
 
 	return validateServer(newObj)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Server.
-func (v *ServerCustomValidator) ValidateDelete(_ context.Context, obj *klapv1alpha1.Server) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type Server.
+func (v *ServerValidator) ValidateDelete(_ context.Context, obj *klapv1alpha1.Server) (admission.Warnings, error) {
 	serverlog.Info("Validation for Server upon deletion", "name", obj.GetName())
 
 	return nil, nil

@@ -29,16 +29,16 @@ var _ = Describe("Server Webhook", func() {
 	var (
 		obj       *klapv1alpha1.Server
 		oldObj    *klapv1alpha1.Server
-		validator ServerCustomValidator
-		defaulter ServerCustomDefaulter
+		validator ServerValidator
+		defaulter ServerDefaulter
 	)
 
 	BeforeEach(func() {
 		obj = &klapv1alpha1.Server{}
 		oldObj = &klapv1alpha1.Server{}
-		validator = ServerCustomValidator{}
+		validator = ServerValidator{}
 		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
-		defaulter = ServerCustomDefaulter{}
+		defaulter = ServerDefaulter{}
 		Expect(defaulter).NotTo(BeNil(), "Expected defaulter to be initialized")
 		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
 		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")

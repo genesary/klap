@@ -30,16 +30,16 @@ var _ = Describe("Entry Webhook", func() {
 	var (
 		obj       *klapv1alpha1.Entry
 		oldObj    *klapv1alpha1.Entry
-		validator EntryCustomValidator
-		defaulter EntryCustomDefaulter
+		validator EntryValidator
+		defaulter EntryDefaulter
 	)
 
 	BeforeEach(func() {
 		obj = &klapv1alpha1.Entry{}
 		oldObj = &klapv1alpha1.Entry{}
-		validator = EntryCustomValidator{}
+		validator = EntryValidator{}
 		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
-		defaulter = EntryCustomDefaulter{}
+		defaulter = EntryDefaulter{}
 		Expect(defaulter).NotTo(BeNil(), "Expected defaulter to be initialized")
 		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
 		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")

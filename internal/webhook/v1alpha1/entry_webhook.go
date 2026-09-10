@@ -38,22 +38,24 @@ var entrylog = logf.Log.WithName("entry-resource")
 // SetupEntryWebhookWithManager registers the webhook for Entry in the manager.
 func SetupEntryWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &klapv1alpha1.Entry{}).
-		WithValidator(&EntryCustomValidator{}).
-		WithDefaulter(&EntryCustomDefaulter{}).
+		WithValidator(&EntryValidator{}).
+		WithDefaulter(&EntryDefaulter{}).
 		Complete()
 }
 
 // +kubebuilder:webhook:path=/mutate-klap-ripolin-github-com-v1alpha1-entry,mutating=true,failurePolicy=fail,sideEffects=None,groups=klap.ripolin.github.com,resources=entries,verbs=create;update,versions=v1alpha1,name=mentry-v1alpha1.kb.io,admissionReviewVersions=v1
 
-// EntryCustomDefaulter struct is responsible for setting default values on the custom resource of the
+// EntryDefaulter struct is responsible for setting default values on the custom resource of the
 // Kind Entry when those are created or updated.
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
-type EntryCustomDefaulter struct{}
+type EntryDefaulter struct {
+	// TODO(user): Add more fields as needed for defaulting
+}
 
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Entry.
-func (d *EntryCustomDefaulter) Default(_ context.Context, obj *klapv1alpha1.Entry) error {
+// Default implements admission.Defaulter so a webhook will be registered for the Kind Entry.
+func (d *EntryDefaulter) Default(_ context.Context, obj *klapv1alpha1.Entry) error {
 	entrylog.Info("Defaulting for Entry", "name", obj.GetName())
 
 	if obj.DeletionTimestamp == nil && !controllerutil.ContainsFinalizer(obj, controller.Finalizer) {
@@ -69,29 +71,31 @@ func (d *EntryCustomDefaulter) Default(_ context.Context, obj *klapv1alpha1.Entr
 
 // +kubebuilder:webhook:path=/validate-klap-ripolin-github-com-v1alpha1-entry,mutating=false,failurePolicy=fail,sideEffects=None,groups=klap.ripolin.github.com,resources=entries,verbs=create;update,versions=v1alpha1,name=ventry-v1alpha1.kb.io,admissionReviewVersions=v1
 
-// EntryCustomValidator struct is responsible for validating the Entry resource
+// EntryValidator struct is responsible for validating the Entry resource
 // when it is created, updated, or deleted.
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type EntryCustomValidator struct{}
+type EntryValidator struct {
+	// TODO(user): Add more fields as needed for validation
+}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Entry.
-func (v *EntryCustomValidator) ValidateCreate(_ context.Context, obj *klapv1alpha1.Entry) (admission.Warnings, error) {
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type Entry.
+func (v *EntryValidator) ValidateCreate(_ context.Context, obj *klapv1alpha1.Entry) (admission.Warnings, error) {
 	entrylog.Info("Validation for Entry upon creation", "name", obj.GetName())
 
 	return nil, validateEntry(obj)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Entry.
-func (v *EntryCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj *klapv1alpha1.Entry) (admission.Warnings, error) {
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type Entry.
+func (v *EntryValidator) ValidateUpdate(_ context.Context, oldObj, newObj *klapv1alpha1.Entry) (admission.Warnings, error) {
 	entrylog.Info("Validation for Entry upon update", "name", newObj.GetName())
 
 	return nil, validateEntry(newObj)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Entry.
-func (v *EntryCustomValidator) ValidateDelete(_ context.Context, obj *klapv1alpha1.Entry) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type Entry.
+func (v *EntryValidator) ValidateDelete(_ context.Context, obj *klapv1alpha1.Entry) (admission.Warnings, error) {
 	entrylog.Info("Validation for Entry upon deletion", "name", obj.GetName())
 
 	return nil, nil
