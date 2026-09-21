@@ -38,5 +38,13 @@
     "GO111MODULE": "on"
   },
 
-  "onCreateCommand": "bash .devcontainer/post-install.sh"
+  "onCreateCommand": "bash .devcontainer/post-install.sh",
+
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/root/.claude,type=bind,consistency=cached"
+  ],
+
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/root/.claude"
+  }
 }

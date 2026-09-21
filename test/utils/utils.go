@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	certmanagerVersion = "v1.21.1"
+	certmanagerVersion = "v1.21.2"
 	certmanagerURLTmpl = "https://github.com/cert-manager/cert-manager/releases/download/%s/cert-manager.yaml"
 
 	defaultKindBinary  = "kind"
@@ -116,9 +116,10 @@ func InstallCertManager() error {
 	if _, err := Run(cmd); err != nil {
 		return err
 	}
-	// Wait for cert-manager-webhook to be ready, which can take time if cert-manager
+	// Wait for deployments to be ready, which can take time if cert-manager
 	// was re-installed after uninstalling on a cluster.
-	cmd = exec.Command("kubectl", "wait", "deployment.apps/cert-manager-webhook",
+	cmd = exec.Command("kubectl", "wait", "deployment.apps",
+		"--all",
 		"--for", "condition=Available",
 		"--namespace", "cert-manager",
 		"--timeout", "5m",

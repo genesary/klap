@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -44,6 +45,16 @@ const metricsServiceName = "klap-controller-manager-metrics-service"
 
 // metricsRoleBindingName is the name of the RBAC that will be created to allow get the metrics data
 const metricsRoleBindingName = "klap-metrics-binding"
+
+// openldapNamespace is the namespace where the OpenLDAP instance installed by the suite lives.
+const openldapNamespace = "openldap"
+
+// openldapAdminDN and openldapAdminPassword are the admin credentials of the OpenLDAP instance
+// installed by the suite (see config/openldap).
+const (
+	openldapAdminDN       = "cn=admin,dc=example,dc=org"
+	openldapAdminPassword = "passwd"
+)
 
 var _ = Describe("Manager", Ordered, func() {
 	var controllerPodName string
@@ -344,6 +355,178 @@ var _ = Describe("Manager", Ordered, func() {
 
 		// +kubebuilder:scaffold:e2e-webhooks-checks
 
+		Context("Server and Entry CRDs", Ordered, func() {
+			const (
+				serverName = "e2e-openldap-server"
+				entryName  = "e2e-openldap-entry"
+				entryDN    = "cn=e2e-joe,dc=example,dc=org"
+
+				// crossNamespace hosts an Entry that lives outside the Server's namespace.
+				// It must match the Server's allowedNamespaces name pattern.
+				crossNamespace       = "e2e-entries"
+				crossNamespaceEntry  = "e2e-cross-namespace-entry"
+				crossNamespaceDN     = "cn=e2e-jane,dc=example,dc=org"
+				allowedNamespaceExpr = "e2e-.*"
+			)
+			var serverManifestFile, entryManifestFile, crossNamespaceEntryManifestFile string
+
+			AfterAll(func() {
+				// Entries must go first: they reference the Server.
+				for _, manifestFile := range []string{crossNamespaceEntryManifestFile, entryManifestFile, serverManifestFile} {
+					if manifestFile == "" {
+						continue
+					}
+					By(fmt.Sprintf("deleting %s", filepath.Base(manifestFile)))
+					cmd := exec.Command("kubectl", "delete", "-f", manifestFile, "--ignore-not-found")
+					_, _ = utils.Run(cmd)
+					_ = os.Remove(manifestFile)
+				}
+
+				By(fmt.Sprintf("deleting namespace %s", crossNamespace))
+				cmd := exec.Command("kubectl", "delete", "ns", crossNamespace, "--ignore-not-found")
+				_, _ = utils.Run(cmd)
+			})
+
+			It("should create a Server CR pointing to the OpenLDAP instance installed by the suite", func() {
+				By("creating a Server CR referencing the OpenLDAP service and secrets")
+				serverManifest := fmt.Sprintf(`
+apiVersion: klap.ripolin.github.com/v1alpha1
+kind: Server
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  url: ldap://ldap.%s.svc.cluster.local
+  baseDN: dc=example,dc=org
+  bindDN: cn=admin,dc=example,dc=org
+  implementation: openldap
+  startTLS: true
+  allowedNamespaces:
+    namePattern: "%s"
+  passwordSecretRef:
+    name: openldap-passwd
+    key: adminPassword
+  tlsSecretRef:
+    name: openldap-server-cert
+    key: ca.crt
+`, serverName, openldapNamespace, openldapNamespace, allowedNamespaceExpr)
+
+				var err error
+				serverManifestFile, err = applyManifest(serverName, serverManifest)
+				Expect(err).NotTo(HaveOccurred(), "Failed to create Server CR")
+
+				By("verifying the Server CR was accepted and its spec matches the OpenLDAP install")
+				cmd := exec.Command("kubectl", "get", "server", serverName, "-n", openldapNamespace,
+					"-o", "jsonpath={.spec.url}")
+				output, err := utils.Run(cmd)
+				Expect(err).NotTo(HaveOccurred(), "Failed to get Server CR")
+				Expect(output).To(Equal(fmt.Sprintf("ldap://ldap.%s.svc.cluster.local", openldapNamespace)))
+			})
+
+			It("should create an Entry CR referencing the Server", func() {
+				const entryDN = "cn=e2e-joe,dc=example,dc=org"
+
+				By("creating an Entry CR referencing the Server CR")
+				entryManifest := fmt.Sprintf(`
+apiVersion: klap.ripolin.github.com/v1alpha1
+kind: Entry
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  dn: %s
+  prune: true
+  force: false
+  adopt: true
+  attributes:
+    objectClass:
+      - inetOrgPerson
+    sn:
+      - Doe
+    mail:
+      - joe@example.org
+  serverRef:
+    name: %s
+    namespace: %s
+`, entryName, openldapNamespace, entryDN, serverName, openldapNamespace)
+
+				var err error
+				entryManifestFile, err = applyManifest(entryName, entryManifest)
+				Expect(err).NotTo(HaveOccurred(), "Failed to create Entry CR")
+
+				By("verifying the Entry CR was accepted and references the Server CR")
+				cmd := exec.Command("kubectl", "get", "entry", entryName, "-n", openldapNamespace,
+					"-o", "jsonpath={.spec.dn} {.spec.serverRef.name}")
+				output, err := utils.Run(cmd)
+				Expect(err).NotTo(HaveOccurred(), "Failed to get Entry CR")
+				Expect(output).To(Equal(fmt.Sprintf("%s %s", entryDN, serverName)))
+
+				By("verifying the Entry CR status is Available")
+				Eventually(verifyEntryAvailable(entryName, openldapNamespace)).
+					WithTimeout(time.Minute).Should(Succeed())
+			})
+
+			It("should create an Entry CR outside the Server's namespace", func() {
+				const entryDN = "cn=e2e-jane,dc=example,dc=org"
+
+				By("creating a namespace matching the Server's allowedNamespaces pattern")
+				cmd := exec.Command("kubectl", "create", "ns", crossNamespace)
+				_, err := utils.Run(cmd)
+				Expect(err).NotTo(HaveOccurred(), "Failed to create namespace")
+
+				By("creating an Entry CR in that namespace referencing the Server CR")
+				entryManifest := fmt.Sprintf(`
+apiVersion: klap.ripolin.github.com/v1alpha1
+kind: Entry
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  dn: %s
+  prune: true
+  force: false
+  adopt: true
+  attributes:
+    objectClass:
+      - inetOrgPerson
+    sn:
+      - Doe
+    mail:
+      - jane@example.org
+  serverRef:
+    name: %s
+    namespace: %s
+`, crossNamespaceEntry, crossNamespace, crossNamespaceDN, serverName, openldapNamespace)
+
+				crossNamespaceEntryManifestFile, err = applyManifest(crossNamespaceEntry, entryManifest)
+				Expect(err).NotTo(HaveOccurred(), "Failed to create cross-namespace Entry CR")
+
+				By("verifying the Entry CR lives outside the Server's namespace and references it")
+				cmd = exec.Command("kubectl", "get", "entry", crossNamespaceEntry, "-n", crossNamespace,
+					"-o", "jsonpath={.spec.dn} {.spec.serverRef.name} {.spec.serverRef.namespace}")
+				output, err := utils.Run(cmd)
+				Expect(err).NotTo(HaveOccurred(), "Failed to get cross-namespace Entry CR")
+				Expect(output).To(Equal(fmt.Sprintf("%s %s %s", crossNamespaceDN, serverName, openldapNamespace)))
+
+				By("verifying the controller accepted the cross-namespace reference")
+				Eventually(verifyEntryAvailable(crossNamespaceEntry, crossNamespace)).
+					WithTimeout(time.Minute).Should(Succeed())
+			})
+
+			It("should delete the Entry CR and prune its LDAP entry", func() {
+				deleteEntryAndVerifyPruned(entryName, openldapNamespace, entryDN)
+
+				By("verifying the other Entry's LDAP entry was left untouched")
+				exists, err := ldapEntryExists(crossNamespaceDN)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(exists).To(BeTrue(), "LDAP entry %s should not have been pruned", crossNamespaceDN)
+			})
+
+			It("should delete the Entry CR outside the Server's namespace and prune its LDAP entry", func() {
+				deleteEntryAndVerifyPruned(crossNamespaceEntry, crossNamespace, crossNamespaceDN)
+			})
+		})
+
 		// TODO: Customize the e2e test suite with scenarios specific to your project.
 		// Consider applying sample/CR(s) and check their status and/or verifying
 		// the reconciliation by using the metrics, i.e.:
@@ -355,6 +538,79 @@ var _ = Describe("Manager", Ordered, func() {
 		// ))
 	})
 })
+
+// applyManifest writes the manifest to a temporary file named after the resource and applies it.
+// It returns the file path so the caller can delete the resource and remove the file afterwards.
+func applyManifest(name, manifest string) (string, error) {
+	manifestFile := filepath.Join(os.TempDir(), fmt.Sprintf("%s.yaml", name))
+	if err := os.WriteFile(manifestFile, []byte(manifest), 0o644); err != nil {
+		return "", fmt.Errorf("writing manifest %s: %w", manifestFile, err)
+	}
+	cmd := exec.Command("kubectl", "apply", "-f", manifestFile)
+	if _, err := utils.Run(cmd); err != nil {
+		return manifestFile, err
+	}
+	return manifestFile, nil
+}
+
+// verifyEntryAvailable returns a check that the Entry has its Available condition set to True.
+func verifyEntryAvailable(name, namespace string) func(Gomega) {
+	return func(g Gomega) {
+		cmd := exec.Command("kubectl", "get", "entry", name, "-n", namespace,
+			"-o", `jsonpath={.status.conditions[?(@.type=="Available")].status}`)
+		output, err := utils.Run(cmd)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(output).To(Equal("True"), "Entry %s/%s should be Available", namespace, name)
+	}
+}
+
+// deleteEntryAndVerifyPruned deletes an Entry with prune enabled and checks that its finalizer
+// was released (the resource disappears) and that the backing LDAP entry was removed.
+func deleteEntryAndVerifyPruned(name, namespace, dn string) {
+	By(fmt.Sprintf("verifying the LDAP entry %s exists before deletion", dn))
+	exists, err := ldapEntryExists(dn)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(exists).To(BeTrue(), "LDAP entry %s should exist before the Entry CR is deleted", dn)
+
+	By(fmt.Sprintf("deleting the Entry CR %s/%s", namespace, name))
+	// kubectl waits for the finalizer to be released before returning.
+	cmd := exec.Command("kubectl", "delete", "entry", name, "-n", namespace, "--timeout=2m")
+	_, err = utils.Run(cmd)
+	Expect(err).NotTo(HaveOccurred(), "Failed to delete Entry CR")
+
+	By("verifying the Entry CR is gone")
+	Eventually(func(g Gomega) {
+		cmd := exec.Command("kubectl", "get", "entry", name, "-n", namespace)
+		output, err := utils.Run(cmd)
+		g.Expect(err).To(HaveOccurred(), "Entry %s/%s should be deleted", namespace, name)
+		g.Expect(output).To(ContainSubstring("NotFound"))
+	}).WithTimeout(time.Minute).Should(Succeed())
+
+	By(fmt.Sprintf("verifying the LDAP entry %s was pruned", dn))
+	Eventually(func(g Gomega) {
+		exists, err := ldapEntryExists(dn)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(exists).To(BeFalse(), "LDAP entry %s should have been pruned", dn)
+	}).WithTimeout(time.Minute).Should(Succeed())
+}
+
+// ldapEntryExists reports whether dn exists in the OpenLDAP instance installed by the suite.
+func ldapEntryExists(dn string) (bool, error) {
+	cmd := exec.Command("kubectl", "exec", "-n", openldapNamespace, "statefulset/openldap", "--",
+		"ldapsearch", "-x", "-LLL",
+		"-H", "ldap://localhost:1389",
+		"-D", openldapAdminDN, "-w", openldapAdminPassword,
+		"-b", dn, "-s", "base", "dn")
+	_, err := utils.Run(cmd)
+	if err == nil {
+		return true, nil
+	}
+	// ldapsearch reports a missing base object as "No such object (32)".
+	if strings.Contains(err.Error(), "No such object") {
+		return false, nil
+	}
+	return false, err
+}
 
 // serviceAccountToken returns a token for the specified service account in the given namespace.
 // It uses the Kubernetes TokenRequest API to generate a token by directly sending a request
