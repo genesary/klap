@@ -3,7 +3,7 @@
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
 cliVersion: 4.16.0
-domain: ripolin.github.com
+domain: genesary.github.com
 layout:
 - go.kubebuilder.io/v4
 plugins:
@@ -11,16 +11,16 @@ plugins:
     manifests: dist/install.yaml
     output: dist
 projectName: klap
-repo: github.com/ripolin/klap
+repo: github.com/genesary/klap
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: ripolin.github.com
+  domain: genesary.github.com
   group: klap
   kind: Entry
-  path: github.com/ripolin/klap/api/v1alpha1
+  path: github.com/genesary/klap/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -29,10 +29,10 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
-  domain: ripolin.github.com
+  domain: genesary.github.com
   group: klap
   kind: Server
-  path: github.com/ripolin/klap/api/v1alpha1
+  path: github.com/genesary/klap/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true

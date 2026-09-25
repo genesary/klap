@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/ripolin/klap/test/utils"
+	"github.com/genesary/klap/test/utils"
 )
 
 // namespace where the project is deployed in
@@ -390,7 +390,7 @@ var _ = Describe("Manager", Ordered, func() {
 			It("should create a Server CR pointing to the OpenLDAP instance installed by the suite", func() {
 				By("creating a Server CR referencing the OpenLDAP service and secrets")
 				serverManifest := fmt.Sprintf(`
-apiVersion: klap.ripolin.github.com/v1alpha1
+apiVersion: klap.genesary.github.com/v1alpha1
 kind: Server
 metadata:
   name: %s
@@ -428,7 +428,7 @@ spec:
 
 				By("creating an Entry CR referencing the Server CR")
 				entryManifest := fmt.Sprintf(`
-apiVersion: klap.ripolin.github.com/v1alpha1
+apiVersion: klap.genesary.github.com/v1alpha1
 kind: Entry
 metadata:
   name: %s
@@ -476,7 +476,7 @@ spec:
 
 				By("creating an Entry CR in that namespace referencing the Server CR")
 				entryManifest := fmt.Sprintf(`
-apiVersion: klap.ripolin.github.com/v1alpha1
+apiVersion: klap.genesary.github.com/v1alpha1
 kind: Entry
 metadata:
   name: %s

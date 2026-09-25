@@ -1,7 +1,7 @@
 # This rule is not used by the project klap itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants read-only access to klap.ripolin.github.com resources.
+# Grants read-only access to klap.genesary.github.com resources.
 # This role is intended for users who need visibility into these resources
 # without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
 
@@ -14,7 +14,7 @@ metadata:
   name: entry-viewer-role
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries
   verbs:
@@ -22,7 +22,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries/status
   verbs:

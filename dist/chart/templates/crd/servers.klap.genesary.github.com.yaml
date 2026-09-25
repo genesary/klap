@@ -7,9 +7,9 @@ metadata:
     "helm.sh/resource-policy": keep
     {{- end }}
     controller-gen.kubebuilder.io/version: v0.22.0
-  name: servers.klap.ripolin.github.com
+  name: servers.klap.genesary.github.com
 spec:
-  group: klap.ripolin.github.com
+  group: klap.genesary.github.com
   names:
     kind: Server
     listKind: ServerList

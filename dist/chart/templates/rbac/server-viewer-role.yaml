@@ -17,7 +17,7 @@ metadata:
   name: {{ include "klap.resourceName" (dict "suffix" "server-viewer-role" "context" $) }}
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers
   verbs:
@@ -25,7 +25,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers/status
   verbs:

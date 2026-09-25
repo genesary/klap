@@ -37,9 +37,9 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	klapv1alpha1 "github.com/ripolin/klap/api/v1alpha1"
-	"github.com/ripolin/klap/internal/controller"
-	webhookv1alpha1 "github.com/ripolin/klap/internal/webhook/v1alpha1"
+	klapv1alpha1 "github.com/genesary/klap/api/v1alpha1"
+	"github.com/genesary/klap/internal/controller"
+	webhookv1alpha1 "github.com/genesary/klap/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 

@@ -17,13 +17,13 @@ metadata:
   name: {{ include "klap.resourceName" (dict "suffix" "server-admin-role" "context" $) }}
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers
   verbs:
   - '*'
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers/status
   verbs:

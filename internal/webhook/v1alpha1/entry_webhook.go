@@ -19,9 +19,9 @@ package v1alpha1
 import (
 	"context"
 
+	klapv1alpha1 "github.com/genesary/klap/api/v1alpha1"
+	"github.com/genesary/klap/internal/controller"
 	"github.com/go-ldap/ldap/v3"
-	klapv1alpha1 "github.com/ripolin/klap/api/v1alpha1"
-	"github.com/ripolin/klap/internal/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -43,7 +43,7 @@ func SetupEntryWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-klap-ripolin-github-com-v1alpha1-entry,mutating=true,failurePolicy=fail,sideEffects=None,groups=klap.ripolin.github.com,resources=entries,verbs=create;update,versions=v1alpha1,name=mentry-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-klap-genesary-github-com-v1alpha1-entry,mutating=true,failurePolicy=fail,sideEffects=None,groups=klap.genesary.github.com,resources=entries,verbs=create;update,versions=v1alpha1,name=mentry-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // EntryDefaulter struct is responsible for setting default values on the custom resource of the
 // Kind Entry when those are created or updated.
@@ -69,7 +69,7 @@ func (d *EntryDefaulter) Default(_ context.Context, obj *klapv1alpha1.Entry) err
 	return nil
 }
 
-// +kubebuilder:webhook:path=/validate-klap-ripolin-github-com-v1alpha1-entry,mutating=false,failurePolicy=fail,sideEffects=None,groups=klap.ripolin.github.com,resources=entries,verbs=create;update,versions=v1alpha1,name=ventry-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-klap-genesary-github-com-v1alpha1-entry,mutating=false,failurePolicy=fail,sideEffects=None,groups=klap.genesary.github.com,resources=entries,verbs=create;update,versions=v1alpha1,name=ventry-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // EntryValidator struct is responsible for validating the Entry resource
 // when it is created, updated, or deleted.
@@ -115,6 +115,6 @@ func validateEntry(entry *klapv1alpha1.Entry) error {
 	}
 
 	return apierrors.NewInvalid(
-		schema.GroupKind{Group: "klap.ripolin.github.com", Kind: "Entry"},
+		schema.GroupKind{Group: "klap.genesary.github.com", Kind: "Entry"},
 		entry.Name, allErrs)
 }

@@ -14,12 +14,12 @@ webhooks:
     service:
       name: {{ include "klap.resourceName" (dict "suffix" "webhook-service" "context" $) }}
       namespace: {{ .Release.Namespace }}
-      path: /mutate-klap-ripolin-github-com-v1alpha1-entry
+      path: /mutate-klap-genesary-github-com-v1alpha1-entry
   failurePolicy: Fail
   name: mentry-v1alpha1.kb.io
   rules:
   - apiGroups:
-    - klap.ripolin.github.com
+    - klap.genesary.github.com
     apiVersions:
     - v1alpha1
     operations:
@@ -34,12 +34,12 @@ webhooks:
     service:
       name: {{ include "klap.resourceName" (dict "suffix" "webhook-service" "context" $) }}
       namespace: {{ .Release.Namespace }}
-      path: /mutate-klap-ripolin-github-com-v1alpha1-server
+      path: /mutate-klap-genesary-github-com-v1alpha1-server
   failurePolicy: Fail
   name: mserver-v1alpha1.kb.io
   rules:
   - apiGroups:
-    - klap.ripolin.github.com
+    - klap.genesary.github.com
     apiVersions:
     - v1alpha1
     operations:

@@ -26,10 +26,10 @@ import (
 	"slices"
 	"time"
 
+	klapv1alpha1 "github.com/genesary/klap/api/v1alpha1"
+	"github.com/genesary/klap/internal/util/boolptr"
 	"github.com/go-ldap/ldap/v3"
 	"github.com/go-logr/logr"
-	klapv1alpha1 "github.com/ripolin/klap/api/v1alpha1"
-	"github.com/ripolin/klap/internal/util/boolptr"
 	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -79,10 +79,10 @@ type EntryReconciler struct {
 	Recorder   events.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=klap.ripolin.github.com,resources=entries,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=klap.ripolin.github.com,resources=entries/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=klap.ripolin.github.com,resources=entries/finalizers,verbs=update
-// +kubebuilder:rbac:groups=klap.ripolin.github.com,resources=servers,verbs=get;list;watch
+// +kubebuilder:rbac:groups=klap.genesary.github.com,resources=entries,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=klap.genesary.github.com,resources=entries/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=klap.genesary.github.com,resources=entries/finalizers,verbs=update
+// +kubebuilder:rbac:groups=klap.genesary.github.com,resources=servers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch

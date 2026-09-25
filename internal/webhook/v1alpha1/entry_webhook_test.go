@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	klapv1alpha1 "github.com/ripolin/klap/api/v1alpha1"
+	klapv1alpha1 "github.com/genesary/klap/api/v1alpha1"
 	// TODO (user): Add any additional imports if needed
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

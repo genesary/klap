@@ -66,7 +66,7 @@ spec:
     spec:
       containers:
         - name: openldap
-          image: ghcr.io/ripolin/openldap:2.7
+          image: ghcr.io/genesary/openldap:2.7
           imagePullPolicy: Always
           env:
             - name: BITNAMI_DEBUG

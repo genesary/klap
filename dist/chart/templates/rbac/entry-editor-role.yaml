@@ -17,7 +17,7 @@ metadata:
   name: {{ include "klap.resourceName" (dict "suffix" "entry-editor-role" "context" $) }}
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries
   verbs:
@@ -29,7 +29,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries/status
   verbs:

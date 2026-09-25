@@ -28,7 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/ripolin/klap/test/utils"
+	"github.com/genesary/klap/test/utils"
 )
 
 var (
@@ -36,7 +36,7 @@ var (
 	managerImage = "controller:latest"
 	// shouldCleanupCertManager tracks whether CertManager was installed by this suite.
 	shouldCleanupCertManager = false
-	shouldCleanupOpenLDAP = false
+	shouldCleanupOpenLDAP    = false
 )
 
 // TestE2E runs the e2e test suite to validate the solution in an isolated environment.

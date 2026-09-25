@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	klapv1alpha1 "github.com/ripolin/klap/api/v1alpha1"
-	"github.com/ripolin/klap/internal/util/boolptr"
+	klapv1alpha1 "github.com/genesary/klap/api/v1alpha1"
+	"github.com/genesary/klap/internal/util/boolptr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

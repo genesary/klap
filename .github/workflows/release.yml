@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ripolin/klap
+  IMAGE_NAME: genesary/klap
 
 jobs:
   build-image:
@@ -70,7 +70,7 @@ jobs:
       packages: write
 
     env:
-      CHART_OCI_PATH: ripolin/helm
+      CHART_OCI_PATH: genesary/helm
       CHART_PATH: dist/chart
 
     needs:

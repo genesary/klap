@@ -23,9 +23,9 @@ import (
 	"regexp"
 	"slices"
 
+	klapv1alpha1 "github.com/genesary/klap/api/v1alpha1"
+	"github.com/genesary/klap/internal/util/boolptr"
 	"github.com/go-ldap/ldap/v3"
-	klapv1alpha1 "github.com/ripolin/klap/api/v1alpha1"
-	"github.com/ripolin/klap/internal/util/boolptr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -51,7 +51,7 @@ func SetupServerWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-klap-ripolin-github-com-v1alpha1-server,mutating=true,failurePolicy=fail,sideEffects=None,groups=klap.ripolin.github.com,resources=servers,verbs=create;update,versions=v1alpha1,name=mserver-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-klap-genesary-github-com-v1alpha1-server,mutating=true,failurePolicy=fail,sideEffects=None,groups=klap.genesary.github.com,resources=servers,verbs=create;update,versions=v1alpha1,name=mserver-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // ServerDefaulter struct is responsible for setting default values on the custom resource of the
 // Kind Server when those are created or updated.
@@ -82,7 +82,7 @@ func (d *ServerDefaulter) Default(_ context.Context, obj *klapv1alpha1.Server) e
 }
 
 // NOTE: If you want to customise the 'path', use the flags '--defaulting-path' or '--validation-path'.
-// +kubebuilder:webhook:path=/validate-klap-ripolin-github-com-v1alpha1-server,mutating=false,failurePolicy=fail,sideEffects=None,groups=klap.ripolin.github.com,resources=servers,verbs=create;update,versions=v1alpha1,name=vserver-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-klap-genesary-github-com-v1alpha1-server,mutating=false,failurePolicy=fail,sideEffects=None,groups=klap.genesary.github.com,resources=servers,verbs=create;update,versions=v1alpha1,name=vserver-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // ServerValidator struct is responsible for validating the Server resource
 // when it is created, updated, or deleted.
@@ -153,6 +153,6 @@ func validateServer(server *klapv1alpha1.Server) (admission.Warnings, error) {
 	}
 
 	return allWarnings, apierrors.NewInvalid(
-		schema.GroupKind{Group: "klap.ripolin.github.com", Kind: "Server"},
+		schema.GroupKind{Group: "klap.genesary.github.com", Kind: "Server"},
 		server.Name, allErrs)
 }

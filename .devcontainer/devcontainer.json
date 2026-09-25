@@ -11,10 +11,7 @@
       "upgradePackages": true
     },
     "ghcr.io/devcontainers/features/node:2":{},
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
-    "ghcr.io/devcontainers/features/java:1": {
-      "version": 25
-    }
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
 
   "runArgs": ["--privileged", "--init"],
@@ -28,8 +25,7 @@
         "ms-kubernetes-tools.vscode-kubernetes-tools",
         "ms-azuretools.vscode-docker",
         "ms-vscode.makefile-tools",
-        "golang.go",
-        "sonarsource.sonarlint-vscode"
+        "golang.go"
       ]
     }
   },

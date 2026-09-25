@@ -32,7 +32,7 @@ rules:
   - create
   - patch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries
   verbs:
@@ -44,13 +44,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries/finalizers
   verbs:
   - update
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries/status
   verbs:
@@ -58,7 +58,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers
   verbs:

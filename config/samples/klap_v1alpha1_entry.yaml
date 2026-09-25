@@ -1,4 +1,4 @@
-apiVersion: klap.ripolin.github.com/v1alpha1
+apiVersion: klap.genesary.github.com/v1alpha1
 kind: Entry
 metadata:
   labels:

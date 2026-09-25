@@ -1,4 +1,4 @@
-module github.com/ripolin/klap
+module github.com/genesary/klap
 
 go 1.26.0
 

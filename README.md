@@ -1,6 +1,6 @@
 # 👏 klap
 
-[![Status](https://img.shields.io/badge/status-WIP-orange)](https://github.com/Ripolin/klap)
+[![Status](https://img.shields.io/badge/status-WIP-orange)](https://github.com/genesary/klap)
 [![Go](https://img.shields.io/badge/Go-1.26-blue?logo=go)](go.mod)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
@@ -39,7 +39,7 @@ Two CRDs are provided:
 ### Via Helm (recommended)
 
 ```sh
-helm install klap oci://ghcr.io/ripolin/helm/klap --version <version> \
+helm install klap oci://ghcr.io/genesary/helm/klap --version <version> \
   --namespace klap-system \
   --create-namespace
 ```
@@ -50,14 +50,14 @@ Apply the consolidated manifest from a tagged release (bundles the CRDs, RBAC,
 webhooks and controller):
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/ripolin/klap/<version>/dist/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/genesary/klap/<version>/dist/install.yaml
 ```
 
 ### Uninstall
 
 ```sh
 helm uninstall klap --namespace klap-system                                              # Helm
-kubectl delete -f https://raw.githubusercontent.com/ripolin/klap/<version>/dist/install.yaml  # kubectl
+kubectl delete -f https://raw.githubusercontent.com/genesary/klap/<version>/dist/install.yaml  # kubectl
 ```
 
 > Deleting the CRDs removes all `Server` and `Entry` resources. Entries with
@@ -74,15 +74,88 @@ kubectl delete -f https://raw.githubusercontent.com/ripolin/klap/<version>/dist/
 >
 > ```sh
 > kubectl delete entries --all --all-namespaces   # let finalizers run while the controller is still up
-> kubectl delete -f https://raw.githubusercontent.com/ripolin/klap/<version>/dist/install.yaml
+> kubectl delete -f https://raw.githubusercontent.com/genesary/klap/<version>/dist/install.yaml
 > ```
+
+### Migrating from `klap.ripolin.github.com`
+
+The project moved from `ripolin` to `genesary`: the API group changed from
+`klap.ripolin.github.com` to `klap.genesary.github.com`, and the images and Helm
+chart are now published under `ghcr.io/genesary`. Kubernetes treats the two
+groups as unrelated APIs, so existing `Server` and `Entry` resources have to be
+recreated under the new group. The procedure below does so **without touching
+the LDAP directory**: old Entries are released with `prune: false`, and new
+Entries re-adopt the existing objects by DN.
+
+Requires [`yq`](https://github.com/mikefarah/yq) v4.
+
+**1. Export the existing resources** (while the old operator is still running):
+
+```sh
+OLD=klap.ripolin.github.com
+NEW=klap.genesary.github.com
+CLEANUP='.items[] |= (
+  del(.metadata.uid, .metadata.resourceVersion, .metadata.generation,
+      .metadata.creationTimestamp, .metadata.managedFields, .metadata.finalizers,
+      .metadata.annotations."kubectl.kubernetes.io/last-applied-configuration",
+      .status)
+  | .apiVersion = "'$NEW'/v1alpha1")'
+
+kubectl get servers.$OLD -A -o yaml | yq "$CLEANUP" > servers.yaml
+kubectl get entries.$OLD -A -o yaml | yq "$CLEANUP" > entries.yaml
+```
+
+Review both files before going further. In particular:
+
+- Entries with `adopt: false` would be rejected with *entry already exists*,
+  since their LDAP object already exists. Set `adopt: true` on them in
+  `entries.yaml` (you can switch it back once they are `Available`).
+- If a Server's `allowedNamespaces.labelSelector` uses a
+  `klap.ripolin.github.com/...` label, either keep it as is or relabel the
+  namespaces and update the selector.
+
+**2. Release the old Entries without deleting their LDAP objects:**
+
+```sh
+kubectl get entries.$OLD -A --no-headers \
+  -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name |
+while read -r ns name; do
+  kubectl patch entries.$OLD -n "$ns" "$name" --type merge -p '{"spec":{"prune":false}}'
+done
+
+kubectl delete entries.$OLD --all --all-namespaces
+kubectl delete servers.$OLD --all --all-namespaces
+```
+
+The old controller must still be running at this point, so it can clear the
+finalizers. With `prune: false`, it does so without connecting to LDAP.
+
+**3. Uninstall the old operator**, then install the new one as described in
+[Installation](#installation):
+
+```sh
+helm uninstall klap --namespace klap-system                                                 # Helm
+kubectl delete -f https://raw.githubusercontent.com/ripolin/klap/<old-version>/dist/install.yaml  # kubectl
+```
+
+**4. Recreate the resources** under the new group, Servers first:
+
+```sh
+kubectl apply -f servers.yaml
+kubectl apply -f entries.yaml
+kubectl get entries.$NEW -A   # all Entries should become Available
+```
+
+Each Entry adopts the LDAP object at its DN and records its GUID in
+`status.guid`. The `prune`, `force` and `adopt` values exported in step 1 apply
+again from then on.
 
 ## Quick start
 
 ### 1. Create a Server
 
 ```yaml
-apiVersion: klap.ripolin.github.com/v1alpha1
+apiVersion: klap.genesary.github.com/v1alpha1
 kind: Server
 metadata:
   name: ldap-server
@@ -107,7 +180,7 @@ kubectl create secret generic ldap-passwd \
 ### 3. Declare an Entry
 
 ```yaml
-apiVersion: klap.ripolin.github.com/v1alpha1
+apiVersion: klap.genesary.github.com/v1alpha1
 kind: Entry
 metadata:
   name: joe
@@ -177,7 +250,7 @@ namespaces. An `Entry` is granted access when **any** of these is true:
 - its namespace carries **labels** matching `labelSelector`.
 
 ```yaml
-apiVersion: klap.ripolin.github.com/v1alpha1
+apiVersion: klap.genesary.github.com/v1alpha1
 kind: Server
 metadata:
   name: ldap-server
@@ -187,10 +260,10 @@ spec:
   allowedNamespaces:
     # Allow any namespace whose name starts with "team-"
     namePattern: "team-.*"
-    # ...and/or any namespace labelled klap.ripolin.github.com/ldap=true
+    # ...and/or any namespace labelled klap.genesary.github.com/ldap=true
     labelSelector:
       matchLabels:
-        klap.ripolin.github.com/ldap: "true"
+        klap.genesary.github.com/ldap: "true"
 ```
 
 > When `allowedNamespaces` is omitted, only Entries from the Server's own

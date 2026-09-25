@@ -12,9 +12,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.22.0
-  name: entries.klap.ripolin.github.com
+  name: entries.klap.genesary.github.com
 spec:
-  group: klap.ripolin.github.com
+  group: klap.genesary.github.com
   names:
     kind: Entry
     listKind: EntryList
@@ -195,9 +195,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.22.0
-  name: servers.klap.ripolin.github.com
+  name: servers.klap.genesary.github.com
 spec:
-  group: klap.ripolin.github.com
+  group: klap.genesary.github.com
   names:
     kind: Server
     listKind: ServerList
@@ -434,13 +434,13 @@ metadata:
   name: klap-entry-admin-role
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries
   verbs:
   - '*'
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries/status
   verbs:
@@ -455,7 +455,7 @@ metadata:
   name: klap-entry-editor-role
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries
   verbs:
@@ -467,7 +467,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries/status
   verbs:
@@ -482,7 +482,7 @@ metadata:
   name: klap-entry-viewer-role
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries
   verbs:
@@ -490,7 +490,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries/status
   verbs:
@@ -523,7 +523,7 @@ rules:
   - create
   - patch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries
   verbs:
@@ -535,13 +535,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries/finalizers
   verbs:
   - update
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - entries/status
   verbs:
@@ -549,7 +549,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers
   verbs:
@@ -594,13 +594,13 @@ metadata:
   name: klap-server-admin-role
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers
   verbs:
   - '*'
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers/status
   verbs:
@@ -615,7 +615,7 @@ metadata:
   name: klap-server-editor-role
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers
   verbs:
@@ -627,7 +627,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers/status
   verbs:
@@ -642,7 +642,7 @@ metadata:
   name: klap-server-viewer-role
 rules:
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers
   verbs:
@@ -650,7 +650,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - klap.ripolin.github.com
+  - klap.genesary.github.com
   resources:
   - servers/status
   verbs:
@@ -771,7 +771,6 @@ spec:
         command:
         - /manager
         image: controller:latest
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /healthz
@@ -878,12 +877,12 @@ webhooks:
     service:
       name: klap-webhook-service
       namespace: klap-system
-      path: /mutate-klap-ripolin-github-com-v1alpha1-entry
+      path: /mutate-klap-genesary-github-com-v1alpha1-entry
   failurePolicy: Fail
   name: mentry-v1alpha1.kb.io
   rules:
   - apiGroups:
-    - klap.ripolin.github.com
+    - klap.genesary.github.com
     apiVersions:
     - v1alpha1
     operations:
@@ -898,12 +897,12 @@ webhooks:
     service:
       name: klap-webhook-service
       namespace: klap-system
-      path: /mutate-klap-ripolin-github-com-v1alpha1-server
+      path: /mutate-klap-genesary-github-com-v1alpha1-server
   failurePolicy: Fail
   name: mserver-v1alpha1.kb.io
   rules:
   - apiGroups:
-    - klap.ripolin.github.com
+    - klap.genesary.github.com
     apiVersions:
     - v1alpha1
     operations:
@@ -926,12 +925,12 @@ webhooks:
     service:
       name: klap-webhook-service
       namespace: klap-system
-      path: /validate-klap-ripolin-github-com-v1alpha1-entry
+      path: /validate-klap-genesary-github-com-v1alpha1-entry
   failurePolicy: Fail
   name: ventry-v1alpha1.kb.io
   rules:
   - apiGroups:
-    - klap.ripolin.github.com
+    - klap.genesary.github.com
     apiVersions:
     - v1alpha1
     operations:
@@ -946,12 +945,12 @@ webhooks:
     service:
       name: klap-webhook-service
       namespace: klap-system
-      path: /validate-klap-ripolin-github-com-v1alpha1-server
+      path: /validate-klap-genesary-github-com-v1alpha1-server
   failurePolicy: Fail
   name: vserver-v1alpha1.kb.io
   rules:
   - apiGroups:
-    - klap.ripolin.github.com
+    - klap.genesary.github.com
     apiVersions:
     - v1alpha1
     operations:

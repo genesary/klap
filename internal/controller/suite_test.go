@@ -33,7 +33,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	klapv1alpha1 "github.com/ripolin/klap/api/v1alpha1"
+	klapv1alpha1 "github.com/genesary/klap/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
