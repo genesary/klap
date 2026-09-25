@@ -6,6 +6,36 @@
 
 **klap** is a Kubernetes operator that declaratively manages LDAP directory entries via custom resources.
 
+## Table of contents
+
+- [Overview](#overview)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Via Helm (recommended)](#via-helm-recommended)
+  - [Via kubectl](#via-kubectl)
+  - [Uninstall](#uninstall)
+  - [Migrating from `klap.ripolin.github.com`](#migrating-from-klapripolingithubcom)
+- [Quick start](#quick-start)
+  - [1. Create a Server](#1-create-a-server)
+  - [2. Create the bind password Secret](#2-create-the-bind-password-secret)
+  - [3. Declare an Entry](#3-declare-an-entry)
+  - [Observing state](#observing-state)
+- [CRD Reference](#crd-reference)
+  - [Server](#server)
+    - [Restricting which namespaces may use a Server](#restricting-which-namespaces-may-use-a-server)
+    - [The bind account](#the-bind-account)
+  - [Entry](#entry)
+    - [DN must live under the Server baseDN](#dn-must-live-under-the-server-basedn)
+    - [Attribute reconciliation (`force`)](#attribute-reconciliation-force)
+    - [Adopting pre-existing entries (`adopt`)](#adopting-pre-existing-entries-adopt)
+    - [Secret key override](#secret-key-override)
+- [Development](#development)
+  - [Prerequisites](#prerequisites-1)
+  - [Common targets](#common-targets)
+  - [Samples](#samples)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Overview
 
 `klap` reconciles Kubernetes custom resources with remote LDAP directories. Define your directory entries as Kubernetes objects and let the operator handle creates, updates and deletes.
