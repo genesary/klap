@@ -49,13 +49,6 @@ const metricsRoleBindingName = "klap-metrics-binding"
 // openldapNamespace is the namespace where the OpenLDAP instance installed by the suite lives.
 const openldapNamespace = "openldap"
 
-// openldapAdminDN and openldapAdminPassword are the admin credentials of the OpenLDAP instance
-// installed by the suite (see config/openldap).
-const (
-	openldapAdminDN       = "cn=admin,dc=example,dc=org"
-	openldapAdminPassword = "passwd"
-)
-
 var _ = Describe("Manager", Ordered, func() {
 	var controllerPodName string
 
@@ -597,9 +590,9 @@ func deleteEntryAndVerifyPruned(name, namespace, dn string) {
 // ldapEntryExists reports whether dn exists in the OpenLDAP instance installed by the suite.
 func ldapEntryExists(dn string) (bool, error) {
 	cmd := exec.Command("kubectl", "exec", "-n", openldapNamespace, "statefulset/openldap", "--",
-		"ldapsearch", "-x", "-LLL",
-		"-H", "ldap://localhost:1389",
-		"-D", openldapAdminDN, "-w", openldapAdminPassword,
+		"ldapsearch", "-LLL",
+		"-Y", "EXTERNAL",
+		"-H", "ldapi:///",
 		"-b", dn, "-s", "base", "dn")
 	_, err := utils.Run(cmd)
 	if err == nil {

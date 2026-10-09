@@ -15,7 +15,9 @@ cat >> "${LDAP_SHARE_DIR}/custom.ldif" << EOF
 dn: olcDatabase={2}mdb,cn=config
 changetype: modify
 add: olcAccess
-olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=${UID},cn=peercred,cn=external, cn=auth" manage by * none
+olcAccess: {0}to *
+    by dn.base="gidNumber=0+uidNumber=${UID},cn=peercred,cn=external,cn=auth" manage
+    by * none break
 
 EOF
 
