@@ -7,7 +7,7 @@ on:
 permissions: {}
 
 jobs:
-  test-e2e:
+  test-chart:
     permissions:
       contents: read
     name: Run on Ubuntu
