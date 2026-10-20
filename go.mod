@@ -1,6 +1,6 @@
 module github.com/genesary/klap
 
-go 1.26.8
+go 1.26.10
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.15

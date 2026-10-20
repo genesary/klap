@@ -7,6 +7,7 @@ on:
       - '[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
 
 env:
+  BASE_IMAGE: docker.io/library/golang:1.26.10@sha256:5c3f3f28a273c9b61698b2d34f18375929790ab1f1d3835d032d21e2b31eae0c
   REGISTRY: ghcr.io
   IMAGE_NAME: genesary/klap
 
@@ -50,6 +51,8 @@ jobs:
         id: push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
+          build-args: |
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
