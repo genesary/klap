@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	klapv1alpha1 "github.com/genesary/klap/api/v1alpha1"
@@ -382,48 +383,46 @@ func (r *EntryReconciler) getPassword(ctx context.Context, server *klapv1alpha1.
 	return "", fmt.Errorf("%s key not found in secret %s", *server.Spec.PasswordSecretRef.Key, ref.Name)
 }
 
-// addEntry adds a new LDAP entry based on the provided Entry specification.
+// addEntry looks the Entry DN up first: a pre-existing LDAP entry is adopted
+// when allowed, otherwise a new one is added. Either way, its GUID is recorded
+// in the Entry status.
 func (r *EntryReconciler) addEntry(cli ldap.Client, entry *klapv1alpha1.Entry, server *klapv1alpha1.Server) error {
-	add := ldap.NewAddRequest(*entry.Spec.DN, []ldap.Control{})
+	guidAttr := guidAttribute(server)
 
-	for k, v := range entry.Spec.Attributes {
-		add.Attributes = append(add.Attributes, ldap.Attribute{
-			Type: k,
-			Vals: v,
-		})
-	}
-
-	if err := cli.Add(add); err != nil {
-		if !ldap.IsErrorWithCode(err, ldap.LDAPResultEntryAlreadyExists) || boolptr.IsSetToFalse(entry.Spec.Adopt) {
-			return err
-		}
-	}
-
-	search := ldap.NewSearchRequest(
-		*server.Spec.BaseDN,
-		ldap.ScopeWholeSubtree,
-		ldap.NeverDerefAliases,
-		0, 0, false,
-		fmt.Sprintf("(%s=%s)", OpenLDAPDN, ldap.EscapeFilter(*entry.Spec.DN)),
-		[]string{OpenLDAPGUID},
-		nil,
-	)
-
-	guidAttr := OpenLDAPGUID
-
-	if *server.Spec.Implementation == ActiveDirectory {
-		search.Filter = fmt.Sprintf("(%s=%s)", ActiveDirectoryDN, ldap.EscapeFilter(*entry.Spec.DN))
-		search.Attributes = []string{ActiveDirectoryGUID}
-		guidAttr = ActiveDirectoryGUID
-	}
-
-	searchResult, err := cli.Search(search)
-
+	current, err := r.searchEntryByDN(cli, *entry.Spec.DN, guidAttr)
 	if err != nil {
 		return err
 	}
 
-	guid := searchResult.Entries[0].GetAttributeValue(guidAttr)
+	if current != nil && boolptr.IsSetToFalse(entry.Spec.Adopt) {
+		return fmt.Errorf("entry %s already exists and adoption is disabled", *entry.Spec.DN)
+	}
+
+	if current == nil {
+		add := ldap.NewAddRequest(*entry.Spec.DN, []ldap.Control{})
+
+		for k, v := range entry.Spec.Attributes {
+			add.Attributes = append(add.Attributes, ldap.Attribute{
+				Type: k,
+				Vals: v,
+			})
+		}
+
+		if err := cli.Add(add); err != nil {
+			return err
+		}
+
+		// Read the entry back to resolve the GUID assigned by the server.
+		if current, err = r.searchEntryByDN(cli, *entry.Spec.DN, guidAttr); err != nil {
+			return err
+		}
+
+		if current == nil {
+			return fmt.Errorf("entry %s not found after its addition", *entry.Spec.DN)
+		}
+	}
+
+	guid := current.GetAttributeValue(guidAttr)
 	if guid == "" {
 		return fmt.Errorf("unable to retrieve entry GUID")
 	}
@@ -432,13 +431,45 @@ func (r *EntryReconciler) addEntry(cli ldap.Client, entry *klapv1alpha1.Entry, s
 	return nil
 }
 
+// searchEntryByDN reads the LDAP entry with the given DN, returning nil when it does not exist.
+func (r *EntryReconciler) searchEntryByDN(cli ldap.Client, dn string, guidAttr string) (*ldap.Entry, error) {
+	search := ldap.NewSearchRequest(
+		dn,
+		ldap.ScopeBaseObject,
+		ldap.NeverDerefAliases,
+		0, 0, false,
+		"(objectClass=*)",
+		[]string{guidAttr},
+		nil,
+	)
+
+	searchResult, err := cli.Search(search)
+	if err != nil {
+		if ldap.IsErrorWithCode(err, ldap.LDAPResultNoSuchObject) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if len(searchResult.Entries) == 0 {
+		return nil, nil
+	}
+
+	return searchResult.Entries[0], nil
+}
+
+// guidAttribute returns the GUID attribute appropriate for the server implementation.
+func guidAttribute(server *klapv1alpha1.Server) string {
+	if *server.Spec.Implementation == ActiveDirectory {
+		return ActiveDirectoryGUID
+	}
+	return OpenLDAPGUID
+}
+
 // searchEntryByGUID looks up an LDAP entry by the GUID stored in the Entry status,
 // using the GUID attribute appropriate for the server implementation.
 func (r *EntryReconciler) searchEntryByGUID(cli ldap.Client, entry *klapv1alpha1.Entry, server *klapv1alpha1.Server) (*ldap.SearchResult, error) {
-	guidAttr := OpenLDAPGUID
-	if *server.Spec.Implementation == ActiveDirectory {
-		guidAttr = ActiveDirectoryGUID
-	}
+	guidAttr := guidAttribute(server)
 
 	search := ldap.NewSearchRequest(
 		*server.Spec.BaseDN,
@@ -454,9 +485,15 @@ func (r *EntryReconciler) searchEntryByGUID(cli ldap.Client, entry *klapv1alpha1
 }
 
 // renameEntryIfMoved issues a ModifyDN request when the entry's current DN
-// differs from the DN expected by the Entry specification.
-func (r *EntryReconciler) renameEntryIfMoved(cli ldap.Client, current *ldap.Entry, entry *klapv1alpha1.Entry, dn *ldap.DN) error {
-	if current.DN == *entry.Spec.DN {
+// differs from the DN expected by the Entry specification. DNs are compared
+// case-insensitively, so a case-only change of the specification is not propagated.
+func (r *EntryReconciler) renameEntryIfMoved(cli ldap.Client, current *ldap.Entry, dn *ldap.DN) error {
+	currentDN, err := ldap.ParseDN(current.DN)
+	if err != nil {
+		return err
+	}
+
+	if currentDN.EqualFold(dn) {
 		return nil
 	}
 
@@ -504,16 +541,13 @@ func (r *EntryReconciler) applyAttributeAdditions(modify *ldap.ModifyRequest, cu
 
 // applyAttributeDeletions stages deletions for attributes present on the current entry
 // but absent from the specification. It is a no-op unless Force is enabled.
-func (r *EntryReconciler) applyAttributeDeletions(modify *ldap.ModifyRequest, current *ldap.Entry, entry *klapv1alpha1.Entry, dn *ldap.DN) {
+func (r *EntryReconciler) applyAttributeDeletions(modify *ldap.ModifyRequest, current *ldap.Entry, entry *klapv1alpha1.Entry, ignoreAttrs []string) {
 	if !boolptr.IsSetToTrue(entry.Spec.Force) {
 		return
 	}
 
-	rdnAttr := dn.RDNs[0].Attributes[0].Type
-
 	for _, attr := range current.Attributes {
-		// Skip the RDN attribute computed from the DN
-		if attr.Name == rdnAttr {
+		if slices.ContainsFunc(ignoreAttrs, func(name string) bool { return strings.EqualFold(name, attr.Name) }) {
 			continue
 		}
 
@@ -543,13 +577,19 @@ func (r *EntryReconciler) updateEntry(cli ldap.Client, entry *klapv1alpha1.Entry
 		return err
 	}
 
-	if err := r.renameEntryIfMoved(cli, current, entry, dn); err != nil {
+	if err := r.renameEntryIfMoved(cli, current, dn); err != nil {
 		return err
+	}
+
+	// Skip the RDN attributes computed from the DN
+	ignoreAttrs := make([]string, 0, len(dn.RDNs[0].Attributes))
+	for _, ava := range dn.RDNs[0].Attributes {
+		ignoreAttrs = append(ignoreAttrs, ava.Type)
 	}
 
 	modify := ldap.NewModifyRequest(*entry.Spec.DN, []ldap.Control{})
 	r.applyAttributeAdditions(modify, current, entry)
-	r.applyAttributeDeletions(modify, current, entry, dn)
+	r.applyAttributeDeletions(modify, current, entry, ignoreAttrs)
 
 	if len(modify.Changes) == 0 {
 		return nil

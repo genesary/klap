@@ -35,9 +35,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+// noSuchObject mimics the error an LDAP server returns when a base search
+// targets a DN absent from the directory.
+var noSuchObject = ldap.NewError(ldap.LDAPResultNoSuchObject, fmt.Errorf("no such object"))
+
 const (
-	objectClass  = "objectClass"
-	groupOfNames = "groupOfNames"
+	objectClass        = "objectClass"
+	groupOfNames       = "groupOfNames"
+	organizationalUnit = "organizationalUnit"
+	description        = "description"
 )
 
 var _ = Describe("Entry Controller", func() {
@@ -134,8 +140,8 @@ var _ = Describe("Entry Controller", func() {
 						Prune: boolptr.True(),
 						Force: boolptr.False(),
 						Attributes: map[string][]string{
-							objectClass:   {groupOfNames},
-							"description": {"test"},
+							objectClass: {groupOfNames},
+							description: {"test"},
 						},
 						ServerRef: klapv1alpha1.ResourceRef{
 							Name:      &sName,
@@ -175,22 +181,26 @@ var _ = Describe("Entry Controller", func() {
 			By("Reconciling the created resource")
 
 			mockClient.EXPECT().Bind(gomock.Any(), gomock.Any()).MaxTimes(3).Return(nil)
-			mockClient.EXPECT().Add(gomock.Any()).Return(nil)
-			mockClient.EXPECT().Search(gomock.Cond(func(search *ldap.SearchRequest) bool {
-				return search.Filter == fmt.Sprintf("(%s=%s)", OpenLDAPDN, dn)
-			})).Return(&ldap.SearchResult{
-				Entries: []*ldap.Entry{
-					{
-						DN: dn,
-						Attributes: []*ldap.EntryAttribute{
-							{
-								Name:   OpenLDAPGUID,
-								Values: []string{uuid},
+			searchByDN := gomock.Cond(func(search *ldap.SearchRequest) bool {
+				return search.BaseDN == dn && search.Scope == ldap.ScopeBaseObject
+			})
+			gomock.InOrder(
+				mockClient.EXPECT().Search(searchByDN).Return(nil, noSuchObject),
+				mockClient.EXPECT().Add(gomock.Any()).Return(nil),
+				mockClient.EXPECT().Search(searchByDN).Return(&ldap.SearchResult{
+					Entries: []*ldap.Entry{
+						{
+							DN: dn,
+							Attributes: []*ldap.EntryAttribute{
+								{
+									Name:   OpenLDAPGUID,
+									Values: []string{uuid},
+								},
 							},
 						},
 					},
-				},
-			}, nil)
+				}, nil),
+			)
 			mockClient.EXPECT().Unbind().MaxTimes(3).Return(nil)
 
 			controllerReconciler := &EntryReconciler{
@@ -224,7 +234,7 @@ var _ = Describe("Entry Controller", func() {
 								Values: []string{groupOfNames},
 							},
 							{
-								Name:   "description",
+								Name:   description,
 								Values: []string{"changed"},
 							},
 						},
@@ -480,7 +490,7 @@ var _ = Describe("Entry Controller", func() {
 		})
 	})
 
-	Context("When adding an entry that already exists", func() {
+	Context("When adding an entry", func() {
 		const (
 			existingDN   = "cn=existing,dc=example,dc=org"
 			existingUUID = "3a5e9b2c-0000-4a1b-8c2d-1122334455ff"
@@ -492,12 +502,7 @@ var _ = Describe("Entry Controller", func() {
 			server     *klapv1alpha1.Server
 		)
 
-		// alreadyExists mimics the error an LDAP server returns when the DN being
-		// added is already present in the directory.
-		alreadyExists := ldap.NewError(ldap.LDAPResultEntryAlreadyExists, fmt.Errorf("entry already exists"))
-
-		// newEntry builds an Entry targeting the pre-existing DN with the given
-		// adopt policy.
+		// newEntry builds an Entry targeting existingDN with the given adopt policy.
 		newEntry := func(adopt *bool) *klapv1alpha1.Entry {
 			dn := existingDN
 			return &klapv1alpha1.Entry{
@@ -505,27 +510,27 @@ var _ = Describe("Entry Controller", func() {
 					DN:    &dn,
 					Adopt: adopt,
 					Attributes: map[string][]string{
-						objectClass: {"organizationalUnit"},
+						objectClass: {organizationalUnit},
 					},
 				},
 			}
 		}
 
-		// expectAdoption sets up the Search that resolves the GUID of the
-		// pre-existing entry once its addition has been skipped.
-		expectAdoption := func() {
-			mockClient.EXPECT().Search(gomock.Cond(func(search *ldap.SearchRequest) bool {
-				return search.Filter == fmt.Sprintf("(%s=%s)", OpenLDAPDN, existingDN)
-			})).Return(&ldap.SearchResult{
-				Entries: []*ldap.Entry{
-					{
-						DN: existingDN,
-						Attributes: []*ldap.EntryAttribute{
-							{Name: OpenLDAPGUID, Values: []string{existingUUID}},
-						},
+		// searchByDN matches the base search reading existingDN.
+		searchByDN := gomock.Cond(func(search *ldap.SearchRequest) bool {
+			return search.BaseDN == existingDN && search.Scope == ldap.ScopeBaseObject
+		})
+
+		// found is the result of a search reading the entry at existingDN.
+		found := &ldap.SearchResult{
+			Entries: []*ldap.Entry{
+				{
+					DN: existingDN,
+					Attributes: []*ldap.EntryAttribute{
+						{Name: OpenLDAPGUID, Values: []string{existingUUID}},
 					},
 				},
-			}, nil)
+			},
 		}
 
 		BeforeEach(func() {
@@ -543,9 +548,46 @@ var _ = Describe("Entry Controller", func() {
 			}
 		})
 
+		It("adds the entry when it does not exist", func() {
+			gomock.InOrder(
+				mockClient.EXPECT().Search(searchByDN).Return(nil, noSuchObject),
+				mockClient.EXPECT().Add(gomock.Cond(func(add *ldap.AddRequest) bool {
+					return add.DN == existingDN
+				})).Return(nil),
+				mockClient.EXPECT().Search(searchByDN).Return(found, nil),
+			)
+
+			entry := newEntry(boolptr.True())
+			Expect(reconciler.addEntry(mockClient, entry, server)).To(Succeed())
+			Expect(entry.Status.GUID).NotTo(BeNil())
+			Expect(*entry.Status.GUID).To(Equal(existingUUID))
+		})
+
+		It("fails when the added entry cannot be read back", func() {
+			gomock.InOrder(
+				mockClient.EXPECT().Search(searchByDN).Return(nil, noSuchObject),
+				mockClient.EXPECT().Add(gomock.Any()).Return(nil),
+				mockClient.EXPECT().Search(searchByDN).Return(nil, noSuchObject),
+			)
+
+			entry := newEntry(boolptr.True())
+			Expect(reconciler.addEntry(mockClient, entry, server)).To(MatchError(ContainSubstring("not found after its addition")))
+			Expect(entry.Status.GUID).To(BeNil())
+		})
+
+		It("surfaces a search failure without adding the entry", func() {
+			// No Add is expected: gomock would fail on an unexpected call.
+			mockClient.EXPECT().Search(searchByDN).Return(nil, ldap.NewError(ldap.LDAPResultInsufficientAccessRights, fmt.Errorf("access denied")))
+
+			entry := newEntry(boolptr.True())
+			err := reconciler.addEntry(mockClient, entry, server)
+			Expect(ldap.IsErrorWithCode(err, ldap.LDAPResultInsufficientAccessRights)).To(BeTrue())
+			Expect(entry.Status.GUID).To(BeNil())
+		})
+
 		It("adopts the existing entry when adopt is true", func() {
-			mockClient.EXPECT().Add(gomock.Any()).Return(alreadyExists)
-			expectAdoption()
+			// No Add is expected: the entry is already present.
+			mockClient.EXPECT().Search(searchByDN).Return(found, nil)
 
 			entry := newEntry(boolptr.True())
 			Expect(reconciler.addEntry(mockClient, entry, server)).To(Succeed())
@@ -554,8 +596,7 @@ var _ = Describe("Entry Controller", func() {
 		})
 
 		It("adopts the existing entry when adopt is unset", func() {
-			mockClient.EXPECT().Add(gomock.Any()).Return(alreadyExists)
-			expectAdoption()
+			mockClient.EXPECT().Search(searchByDN).Return(found, nil)
 
 			entry := newEntry(nil)
 			Expect(reconciler.addEntry(mockClient, entry, server)).To(Succeed())
@@ -564,14 +605,135 @@ var _ = Describe("Entry Controller", func() {
 		})
 
 		It("does not adopt and surfaces the error when adopt is false", func() {
-			// No Search is expected: addition must fail before any adoption.
-			mockClient.EXPECT().Add(gomock.Any()).Return(alreadyExists)
+			mockClient.EXPECT().Search(searchByDN).Return(found, nil)
 
 			entry := newEntry(boolptr.False())
 			err := reconciler.addEntry(mockClient, entry, server)
-			Expect(err).To(HaveOccurred())
-			Expect(ldap.IsErrorWithCode(err, ldap.LDAPResultEntryAlreadyExists)).To(BeTrue())
+			Expect(err).To(MatchError(ContainSubstring("already exists and adoption is disabled")))
 			Expect(entry.Status.GUID).To(BeNil())
+		})
+	})
+
+	Context("When updating an entry", func() {
+		const (
+			baseDN       = "dc=example,dc=org"
+			existingDN   = "cn=existing,dc=example,dc=org"
+			existingUUID = "3a5e9b2c-0000-4a1b-8c2d-1122334455ff"
+		)
+
+		var (
+			mockClient *mock_ldap.MockClient
+			reconciler *EntryReconciler
+			server     *klapv1alpha1.Server
+		)
+
+		// newEntry builds an Entry already bound to existingUUID, targeting dn.
+		newEntry := func(dn string, force *bool) *klapv1alpha1.Entry {
+			guid := existingUUID
+			return &klapv1alpha1.Entry{
+				Spec: klapv1alpha1.EntrySpec{
+					DN:    &dn,
+					Force: force,
+					Attributes: map[string][]string{
+						objectClass: {organizationalUnit},
+					},
+				},
+				Status: klapv1alpha1.EntryStatus{
+					GUID: &guid,
+				},
+			}
+		}
+
+		// found returns the result of a GUID search locating the entry at dn.
+		found := func(dn string, attrs ...*ldap.EntryAttribute) *ldap.SearchResult {
+			return &ldap.SearchResult{
+				Entries: []*ldap.Entry{
+					{
+						DN: dn,
+						// The "*" selector returns user attributes only, so no GUID here.
+						Attributes: append([]*ldap.EntryAttribute{
+							{Name: objectClass, Values: []string{organizationalUnit}},
+						}, attrs...),
+					},
+				},
+			}
+		}
+
+		// searchByGUID matches the subtree search locating the entry by its GUID.
+		searchByGUID := gomock.Cond(func(search *ldap.SearchRequest) bool {
+			return search.BaseDN == baseDN && search.Scope == ldap.ScopeWholeSubtree
+		})
+
+		BeforeEach(func() {
+			mockCtrl := gomock.NewController(GinkgoT())
+			mockClient = mock_ldap.NewMockClient(mockCtrl)
+			reconciler = &EntryReconciler{}
+
+			base := baseDN
+			impl := OpenLDAP
+			server = &klapv1alpha1.Server{
+				Spec: klapv1alpha1.ServerSpec{
+					BaseDN:         &base,
+					Implementation: &impl,
+				},
+			}
+		})
+
+		It("does not rename the entry when its DN is unchanged", func() {
+			// No ModifyDN nor Modify is expected: gomock would fail on an unexpected call.
+			mockClient.EXPECT().Search(searchByGUID).Return(found(existingDN), nil)
+
+			Expect(reconciler.updateEntry(mockClient, newEntry(existingDN, nil), server)).To(Succeed())
+		})
+
+		It("does not rename the entry when its DN only differs by case", func() {
+			mockClient.EXPECT().Search(searchByGUID).Return(found("CN=Existing, DC=example, DC=org"), nil)
+
+			Expect(reconciler.updateEntry(mockClient, newEntry(existingDN, nil), server)).To(Succeed())
+		})
+
+		It("renames the entry when its DN has moved", func() {
+			gomock.InOrder(
+				mockClient.EXPECT().Search(searchByGUID).Return(found("cn=old,ou=people,dc=example,dc=org"), nil),
+				mockClient.EXPECT().ModifyDN(gomock.Cond(func(moddn *ldap.ModifyDNRequest) bool {
+					return moddn.DN == "cn=old,ou=people,dc=example,dc=org" &&
+						moddn.NewRDN == "cn=existing" &&
+						moddn.DeleteOldRDN &&
+						moddn.NewSuperior == baseDN
+				})).Return(nil),
+			)
+
+			Expect(reconciler.updateEntry(mockClient, newEntry(existingDN, nil), server)).To(Succeed())
+		})
+
+		It("surfaces a rename failure", func() {
+			gomock.InOrder(
+				mockClient.EXPECT().Search(searchByGUID).Return(found("cn=old,dc=example,dc=org"), nil),
+				mockClient.EXPECT().ModifyDN(gomock.Any()).
+					Return(ldap.NewError(ldap.LDAPResultEntryAlreadyExists, fmt.Errorf("already exists"))),
+			)
+
+			err := reconciler.updateEntry(mockClient, newEntry(existingDN, nil), server)
+			Expect(ldap.IsErrorWithCode(err, ldap.LDAPResultEntryAlreadyExists)).To(BeTrue())
+		})
+
+		It("keeps the RDN attributes when forcing, whatever their case", func() {
+			dn := "CN=existing+UID=jdoe,dc=example,dc=org"
+			gomock.InOrder(
+				mockClient.EXPECT().Search(searchByGUID).Return(found(dn,
+					&ldap.EntryAttribute{Name: "cn", Values: []string{"existing"}},
+					&ldap.EntryAttribute{Name: "uid", Values: []string{"jdoe"}},
+					&ldap.EntryAttribute{Name: description, Values: []string{"stale"}},
+				), nil),
+				mockClient.EXPECT().Modify(gomock.Cond(func(modify *ldap.ModifyRequest) bool {
+					// Only the attribute absent from both the specification and the RDN is deleted.
+					return len(modify.Changes) == 1 &&
+						modify.Changes[0].Operation == ldap.DeleteAttribute &&
+						modify.Changes[0].Modification.Type == description
+				})).Return(nil),
+			)
+
+			Expect(reconciler.updateEntry(mockClient, newEntry(dn, boolptr.True()), server)).To(Succeed())
 		})
 	})
 })
